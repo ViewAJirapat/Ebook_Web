@@ -20,15 +20,24 @@
             </div>
           </div>
 
-          <!-- Mobile-only Scan trigger -->
-          <button
-            @click="triggerScan"
-            :disabled="isScanning"
-            class="sm:hidden p-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/40 text-white rounded-lg transition"
-            title="Scan data/library"
-          >
-            <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': isScanning }" />
-          </button>
+          <!-- Mobile Actions -->
+          <div class="sm:hidden flex items-center gap-1.5">
+            <button
+              @click="showUploadModal = true"
+              class="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-indigo-400 rounded-lg transition"
+              title="Upload book or folder"
+            >
+              <Upload class="w-4 h-4" />
+            </button>
+            <button
+              @click="triggerScan"
+              :disabled="isScanning"
+              class="p-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/40 text-white rounded-lg transition"
+              title="Scan data/library"
+            >
+              <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': isScanning }" />
+            </button>
+          </div>
         </div>
 
         <!-- Search Bar -->
@@ -50,7 +59,15 @@
         </div>
 
         <!-- Desktop Admin Action -->
-        <div class="hidden sm:flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-2.5">
+          <button
+            @click="showUploadModal = true"
+            class="flex items-center gap-2 px-3.5 py-2 text-sm font-medium bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white rounded-xl transition cursor-pointer shadow-sm"
+          >
+            <Upload class="w-4 h-4 text-indigo-400" />
+            <span>Upload</span>
+          </button>
+
           <button
             @click="triggerScan"
             :disabled="isScanning"
@@ -245,6 +262,14 @@
       </div>
 
     </main>
+
+    <!-- Upload Modal -->
+    <UploadModal
+      v-if="showUploadModal"
+      :categories="rawCategoriesList"
+      @close="showUploadModal = false"
+      @uploaded="onBookUploaded"
+    />
   </div>
 </template>
 
@@ -260,19 +285,40 @@ import {
   BookX,
   CheckCircle2,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  Upload
 } from 'lucide-vue-next'
+import UploadModal from './UploadModal.vue'
 
 const emit = defineEmits(['open-reader'])
 
 const books = ref([])
 const isLoading = ref(true)
 const isScanning = ref(false)
+const showUploadModal = ref(false)
 const searchQuery = ref('')
 const selectedCategory = ref('All')
 
 const toastMessage = ref('')
 const toastType = ref('success')
+
+const rawCategoriesList = computed(() => {
+  const cats = new Set(['document', 'manga'])
+  books.value.forEach(b => {
+    if (b.category && b.category !== 'General') {
+      cats.add(b.category)
+    }
+  })
+  return Array.from(cats).sort((a, b) => a.localeCompare(b))
+})
+
+const onBookUploaded = async ({ category, result }) => {
+  await fetchBooks()
+  if (category) {
+    selectedCategory.value = category
+  }
+  showToast(result?.message || `Successfully added book to "${category}"!`, 'success')
+}
 
 const showToast = (msg, type = 'success') => {
   toastMessage.value = msg

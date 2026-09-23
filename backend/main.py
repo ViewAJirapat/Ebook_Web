@@ -2,11 +2,14 @@ import os
 import re
 import io
 import datetime
+import zipfile
+import shutil
+import json
 from pathlib import Path
 from typing import List, Optional, Union, Dict, Any
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -136,6 +139,28 @@ def get_safe_id_from_path(item_path: Path) -> str:
     # Replace illegal filesystem and path separators only, keeping full Unicode text intact
     safe_id = re.sub(r'[\\/:*?"<>|\x00-\x1f]', '_', rel).strip('. ')
     return safe_id
+
+
+def sanitize_path_segment(segment: str) -> str:
+    """
+    Sanitize directory or filename segment.
+    Preserves Unicode (Thai, Japanese, etc.), spaces, numbers, and hyphens.
+    Replaces illegal filesystem chars (<>:"/\|?*) and control chars with '_'.
+    Prevents path traversal ('..') and leading/trailing dots/spaces.
+    """
+    if not segment:
+        return "unnamed"
+    segment = str(segment).replace("\\", "/")
+    parts = [p.strip('. ') for p in segment.split('/') if p.strip('. ') and p.strip('. ') != '..']
+    if not parts:
+        return "unnamed"
+    safe_parts = []
+    for part in parts:
+        clean = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', part).strip('. ')
+        if clean:
+            safe_parts.append(clean)
+    return "/".join(safe_parts) if safe_parts else "unnamed"
+
 
 
 def extract_or_generate_cover(item_path: Union[str, Path], book_id: Optional[str] = None) -> Optional[str]:
@@ -380,6 +405,124 @@ async def scan_library():
         "count": len(scanned_items),
         "items": scanned_items
     }
+
+
+@app.post("/api/upload")
+async def upload_library_files(
+    category: Optional[str] = Form(None),
+    book_name: Optional[str] = Form(None),
+    relative_paths: Optional[str] = Form(None),
+    files: List[UploadFile] = File(...)
+):
+    """
+    Upload ebook / manga files directly from web frontend:
+    - PDF documents (.pdf)
+    - Comic/Manga archives (.zip, .cbz)
+    - Full folder uploads via HTML5 webkitdirectory (with relative_paths)
+    - Image collections with custom book_name
+    Automatically triggers library scan and cover extraction upon completion.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded.")
+
+    # Parse relative paths if provided (from webkitdirectory)
+    parsed_rel_paths = []
+    if relative_paths:
+        try:
+            parsed_rel_paths = json.loads(relative_paths)
+        except Exception:
+            parsed_rel_paths = []
+
+    # Determine default category if not specified
+    first_ext = Path(files[0].filename or "").suffix.lower()
+    cat_val = category.strip() if category and category.strip() else ""
+    if not cat_val:
+        if first_ext == ".pdf":
+            cat_val = "document"
+        else:
+            cat_val = "manga"
+
+    safe_category = sanitize_path_segment(cat_val)
+    category_dir = LIBRARY_DIR / safe_category
+    category_dir.mkdir(parents=True, exist_ok=True)
+
+    saved_items_count = 0
+
+    for idx, upload_file in enumerate(files):
+        original_filename = upload_file.filename or f"file_{idx}"
+        file_ext = Path(original_filename).suffix.lower()
+
+        # 1. Archive files (.zip, .cbz) -> extract into a dedicated book folder
+        if file_ext in {".zip", ".cbz"}:
+            archive_name = book_name if (book_name and len(files) == 1) else Path(original_filename).stem
+            safe_folder = sanitize_path_segment(archive_name)
+            target_extract_dir = category_dir / safe_folder
+            target_extract_dir.mkdir(parents=True, exist_ok=True)
+
+            content = await upload_file.read()
+            try:
+                with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                    for member in zf.infolist():
+                        if member.is_dir() or member.filename.startswith("/") or ".." in member.filename:
+                            continue
+                        clean_member_name = sanitize_path_segment(member.filename)
+                        dest_file = target_extract_dir / clean_member_name
+                        dest_file.parent.mkdir(parents=True, exist_ok=True)
+                        with zf.open(member) as source, open(dest_file, "wb") as dest:
+                            shutil.copyfileobj(source, dest)
+                saved_items_count += 1
+            except zipfile.BadZipFile:
+                raise HTTPException(status_code=400, detail=f"File {original_filename} is not a valid zip archive.")
+
+        # 2. Folder uploads with webkitRelativePath
+        elif parsed_rel_paths and idx < len(parsed_rel_paths) and parsed_rel_paths[idx]:
+            rel_path_str = parsed_rel_paths[idx]
+            safe_rel_path = sanitize_path_segment(rel_path_str)
+            target_file_path = category_dir / safe_rel_path
+            target_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(target_file_path, "wb") as f_out:
+                while chunk := await upload_file.read(1024 * 1024):
+                    f_out.write(chunk)
+            saved_items_count += 1
+
+        # 3. Multiple images forming a single book folder (book_name specified)
+        elif file_ext in IMAGE_EXTENSIONS and book_name:
+            safe_folder = sanitize_path_segment(book_name)
+            target_folder_dir = category_dir / safe_folder
+            target_folder_dir.mkdir(parents=True, exist_ok=True)
+            safe_file_name = sanitize_path_segment(original_filename)
+            target_file_path = target_folder_dir / safe_file_name
+
+            with open(target_file_path, "wb") as f_out:
+                while chunk := await upload_file.read(1024 * 1024):
+                    f_out.write(chunk)
+            saved_items_count += 1
+
+        # 4. Standard file (e.g. PDF or standalone item)
+        else:
+            if book_name and len(files) == 1:
+                final_name = f"{sanitize_path_segment(book_name)}{file_ext}"
+            else:
+                final_name = sanitize_path_segment(original_filename)
+            target_file_path = category_dir / final_name
+
+            with open(target_file_path, "wb") as f_out:
+                while chunk := await upload_file.read(1024 * 1024):
+                    f_out.write(chunk)
+            saved_items_count += 1
+
+    # Automatically scan library to update database and generate covers immediately
+    scan_result = await scan_library()
+
+    return {
+        "success": True,
+        "category": safe_category,
+        "files_saved": saved_items_count,
+        "message": f"Successfully uploaded and indexed into category '{safe_category}'.",
+        "scan": scan_result
+    }
+
 
 
 @app.get("/api/books")
