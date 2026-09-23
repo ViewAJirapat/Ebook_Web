@@ -1,0 +1,41 @@
+# ==============================================================================
+# Docker Build Context Ignore
+# ==============================================================================
+
+# Version Control
+.git
+.gitignore
+
+# Python & Virtual Environments
+.venv
+venv
+env
+ENV
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+
+# Node.js Dependencies & Artifacts
+node_modules
+**/node_modules
+frontend/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Application Data & Cache (Handled via volumes at runtime)
+data/
+database/*.db
+database/*.db-journal
+database/*.db-wal
+database/*.db-shm
+
+# IDE & OS temporary files
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+*.log
