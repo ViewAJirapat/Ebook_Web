@@ -68,12 +68,23 @@
           {{ book.total_pages }} {{ book.total_pages === 1 ? 'page' : 'pages' }}
         </span>
 
-        <span v-if="book.last_page > 0" class="text-indigo-400 font-medium">
-          p. {{ book.last_page }} ({{ progressPercent }}%)
-        </span>
-        <span v-else class="text-slate-400">
-          Unread
-        </span>
+        <div class="flex items-center gap-2">
+          <span v-if="book.last_page > 0" class="text-indigo-400 font-medium">
+            p. {{ book.last_page }} ({{ progressPercent }}%)
+          </span>
+          <span v-else class="text-slate-400">
+            Unread
+          </span>
+
+          <button
+            type="button"
+            @click.stop.prevent="$emit('delete', book)"
+            class="p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/20 rounded-md transition cursor-pointer"
+            title="Delete ebook"
+          >
+            <Trash2 class="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   </a>
@@ -81,7 +92,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { Folder, FileText, BookOpen, ExternalLink } from 'lucide-vue-next'
+import { Folder, FileText, BookOpen, ExternalLink, Trash2 } from 'lucide-vue-next'
 
 const props = defineProps({
   book: {
@@ -90,7 +101,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select'])
+const emit = defineEmits(['select', 'delete'])
 
 const imageError = ref(false)
 

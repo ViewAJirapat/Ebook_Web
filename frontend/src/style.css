@@ -2,10 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Scrollbar for Pure Dark Mode */
+/* Visible, Modern Custom Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #475569 #020617;
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
@@ -13,12 +18,22 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b; /* slate-800 */
+  background: #334155; /* slate-700 - clearly visible */
   border-radius: 9999px;
+  border: 3px solid #020617; /* padding around thumb */
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155; /* slate-700 */
+  background: #6366f1; /* indigo-500 highlight on hover */
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #818cf8; /* indigo-400 highlight on drag */
+}
+
+html {
+  overflow-y: scroll; /* Always show vertical scrollbar track to prevent layout jumps */
+  scroll-behavior: smooth;
 }
 
 html, body {

@@ -5,11 +5,13 @@ import datetime
 import zipfile
 import shutil
 import json
+import hmac
+import hashlib
 from pathlib import Path
 from typing import List, Optional, Union, Dict, Any
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -46,6 +48,39 @@ for directory in [LIBRARY_DIR, COVERS_DIR, PDF_PAGES_DIR, DATABASE_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
 
 IMAGE_EXTENSIONS = {".webp", ".jpg", ".jpeg", ".png", ".bmp"}
+
+# Authentication configuration
+AUTH_SECRET = os.environ.get("AUTH_SECRET", "manga-reader-auth-secret-key-2026")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "123456")
+
+
+def create_auth_token(username: str) -> str:
+    timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+    raw = f"{username}:{timestamp}"
+    sig = hmac.new(AUTH_SECRET.encode(), raw.encode(), hashlib.sha256).hexdigest()
+    return f"{raw}:{sig}"
+
+
+def verify_auth_token(token: str) -> bool:
+    try:
+        parts = token.split(":")
+        if len(parts) != 3:
+            return False
+        username, ts_str, sig = parts
+        if username != ADMIN_USERNAME:
+            return False
+        raw = f"{username}:{ts_str}"
+        expected_sig = hmac.new(AUTH_SECRET.encode(), raw.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected_sig):
+            return False
+        timestamp = int(ts_str)
+        now = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+        if now - timestamp > 30 * 86400:  # 30 days valid
+            return False
+        return True
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -85,9 +120,20 @@ async def init_db():
         await db.commit()
 
 
+async def _background_scan():
+    try:
+        print("[Startup] Starting background library scan...")
+        res = await scan_library()
+        print(f"[Startup] Library scan finished: {res.get('count', 0)} books indexed.")
+    except Exception as e:
+        print(f"[Startup] Error during background scan: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    import asyncio
+    asyncio.create_task(_background_scan())
     yield
 
 
@@ -316,6 +362,34 @@ def resolve_book_path(book_id: str, rel_path: Optional[str] = None) -> Optional[
 # ---------------------------------------------------------------------------
 # 3. API Endpoints
 # ---------------------------------------------------------------------------
+class LoginPayload(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/api/auth/login")
+async def login(payload: LoginPayload):
+    if payload.username == ADMIN_USERNAME and payload.password == ADMIN_PASSWORD:
+        token = create_auth_token(payload.username)
+        return {
+            "success": True,
+            "token": token,
+            "user": payload.username,
+            "message": "Login successful"
+        }
+    raise HTTPException(status_code=401, detail="Invalid username or password")
+
+
+@app.get("/api/auth/verify")
+async def verify_auth(authorization: Optional[str] = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    token = authorization[7:].strip()
+    if not verify_auth_token(token):
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    return {"authenticated": True, "user": ADMIN_USERNAME}
+
+
 @app.get("/api/health")
 async def health_check():
     return {
@@ -597,6 +671,70 @@ async def get_book_by_id(book_id: str):
             if not row:
                 raise HTTPException(status_code=404, detail="Book not found")
             return dict(row)
+
+
+@app.delete("/api/books/{book_id}")
+async def delete_book(book_id: str):
+    """
+    Permanently delete a book:
+    1. Source file (PDF) or manga folder in data/library/
+    2. Cached cover thumbnail in data/cache/covers/
+    3. Cached rendered PDF pages in data/cache/pdf_pages/
+    4. Database records in books and reading_progress
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM books WHERE id = ?", (book_id,)) as cursor:
+            book = await cursor.fetchone()
+
+        if not book:
+            raise HTTPException(status_code=404, detail="Book not found")
+
+        rel_path = book["rel_path"] if "rel_path" in book.keys() else None
+        item_path = resolve_book_path(book_id, rel_path=rel_path)
+
+        deleted_source = False
+        if item_path and item_path.exists():
+            try:
+                # Ensure security: path must be inside LIBRARY_DIR
+                item_path.resolve().relative_to(LIBRARY_DIR.resolve())
+                if item_path.is_file():
+                    item_path.unlink()
+                    deleted_source = True
+                elif item_path.is_dir():
+                    shutil.rmtree(item_path)
+                    deleted_source = True
+            except Exception as e:
+                print(f"Warning: could not delete source path {item_path}: {e}")
+
+        # Delete cover cache
+        cover_path = COVERS_DIR / f"{book_id}.webp"
+        if cover_path.exists():
+            try:
+                cover_path.unlink()
+            except Exception as e:
+                print(f"Warning: could not delete cover {cover_path}: {e}")
+
+        # Delete PDF page cache
+        pages_cache_dir = PDF_PAGES_DIR / book_id
+        if pages_cache_dir.exists():
+            try:
+                shutil.rmtree(pages_cache_dir)
+            except Exception as e:
+                print(f"Warning: could not delete pages cache {pages_cache_dir}: {e}")
+
+        # Delete from database
+        await db.execute("DELETE FROM reading_progress WHERE book_id = ?", (book_id,))
+        await db.execute("DELETE FROM books WHERE id = ?", (book_id,))
+        await db.commit()
+
+    return {
+        "success": True,
+        "book_id": book_id,
+        "title": book["title"],
+        "deleted_source": deleted_source,
+        "message": f"Successfully removed '{book['title']}' from library."
+    }
 
 
 @app.get("/api/books/{book_id}/pages")

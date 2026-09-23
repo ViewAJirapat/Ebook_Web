@@ -38,6 +38,13 @@
             >
               <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isScanning }" />
             </button>
+            <button
+              @click="$emit('logout')"
+              class="p-1.5 bg-slate-900 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-900/50 text-slate-400 hover:text-rose-400 rounded-lg transition cursor-pointer"
+              title="Log out"
+            >
+              <LogOut class="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
@@ -76,6 +83,16 @@
           >
             <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': isScanning }" />
             <span>{{ isScanning ? 'Scanning...' : 'Scan Library' }}</span>
+          </button>
+
+          <!-- Logout Button -->
+          <button
+            @click="$emit('logout')"
+            class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-slate-900 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-900/50 text-slate-400 hover:text-rose-400 rounded-xl transition cursor-pointer"
+            title="Log out"
+          >
+            <LogOut class="w-4 h-4" />
+            <span class="hidden md:inline">Logout</span>
           </button>
         </div>
 
@@ -216,15 +233,25 @@
               <span class="text-[11px] text-slate-400">No Cover</span>
             </div>
 
-            <!-- Open in New Tab Quick Action Button -->
-            <button
-              type="button"
-              @click.stop.prevent="openInNewTab(book)"
-              class="absolute top-2 left-2 p-1.5 bg-slate-950/80 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 backdrop-blur-md shadow-md z-10 cursor-pointer"
-              title="Open in new tab"
-            >
-              <ExternalLink class="w-3.5 h-3.5" />
-            </button>
+            <!-- Card Action Buttons (Open in New Tab & Delete) -->
+            <div class="absolute top-2 left-2 flex items-center gap-1.5 z-10 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-all duration-200">
+              <button
+                type="button"
+                @click.stop.prevent="openInNewTab(book)"
+                class="p-1.5 bg-slate-950/80 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-lg backdrop-blur-md shadow-md cursor-pointer transition"
+                title="Open in new tab"
+              >
+                <ExternalLink class="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                @click.stop.prevent="confirmDelete(book)"
+                class="p-1.5 bg-slate-950/80 hover:bg-rose-600 text-slate-300 hover:text-white rounded-lg backdrop-blur-md shadow-md cursor-pointer transition"
+                title="Delete ebook"
+              >
+                <Trash2 class="w-3.5 h-3.5" />
+              </button>
+            </div>
 
             <!-- Format & Subdirectory Category Badges -->
             <div class="absolute top-2 right-2 flex items-center gap-1.5 z-10">
@@ -271,15 +298,92 @@
                 {{ getProgressText(book) }}
               </span>
 
-              <span class="text-slate-400 font-mono text-[10px]">
-                {{ book.total_pages }}p
-              </span>
+              <div class="flex items-center gap-2">
+                <span class="text-slate-400 font-mono text-[10px]">
+                  {{ book.total_pages }}p
+                </span>
+
+                <!-- Always visible Trash Delete Button -->
+                <button
+                  type="button"
+                  @click.stop.prevent="confirmDelete(book)"
+                  class="p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/20 rounded-md transition cursor-pointer"
+                  title="Delete ebook"
+                >
+                  <Trash2 class="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         </a>
       </div>
 
     </main>
+
+    <!-- Back to Top Floating Button -->
+    <transition
+      enter-active-class="transition ease-out duration-200"
+      enter-from-class="opacity-0 translate-y-2 scale-90"
+      enter-to-class="opacity-100 translate-y-0 scale-100"
+      leave-active-class="transition ease-in duration-150"
+      leave-from-class="opacity-100 translate-y-0 scale-100"
+      leave-to-class="opacity-0 translate-y-2 scale-90"
+    >
+      <button
+        v-if="showBackToTop"
+        @click="scrollToTop"
+        class="fixed bottom-6 right-6 p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl shadow-xl shadow-indigo-600/30 transition cursor-pointer z-40 flex items-center justify-center hover:scale-105 active:scale-95 border border-indigo-400/30"
+        title="Scroll to top"
+      >
+        <ArrowUp class="w-5 h-5" />
+      </button>
+    </transition>
+
+    <!-- Delete Confirmation Modal -->
+    <div
+      v-if="showDeleteModal && bookToDelete"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+      @click.self="cancelDelete"
+    >
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
+            <Trash2 class="w-6 h-6" />
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Delete Ebook</h3>
+            <p class="text-xs text-slate-400">Permanently remove from library and disk</p>
+          </div>
+        </div>
+
+        <p class="text-sm text-slate-300 leading-relaxed">
+          Are you sure you want to delete <span class="font-semibold text-white">"{{ bookToDelete.title }}"</span>?
+        </p>
+        <div class="p-3 bg-rose-950/40 border border-rose-900/60 rounded-xl text-xs text-rose-300">
+          ⚠️ This will permanently delete the source file/folder from your computer and cannot be undone.
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+          <button
+            type="button"
+            @click="cancelDelete"
+            :disabled="isDeleting"
+            class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            @click="executeDelete"
+            :disabled="isDeleting"
+            class="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 disabled:bg-rose-800 rounded-xl shadow-lg shadow-rose-600/20 transition cursor-pointer"
+          >
+            <RefreshCw v-if="isDeleting" class="w-3.5 h-3.5 animate-spin" />
+            <span>{{ isDeleting ? 'Deleting...' : 'Yes, Delete' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Upload Modal -->
     <UploadModal
@@ -292,7 +396,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import {
   BookOpen,
   Search,
@@ -305,11 +409,14 @@ import {
   AlertCircle,
   ExternalLink,
   Upload,
-  Plus
+  Plus,
+  Trash2,
+  ArrowUp,
+  LogOut
 } from 'lucide-vue-next'
 import UploadModal from './UploadModal.vue'
 
-const emit = defineEmits(['open-reader'])
+const emit = defineEmits(['open-reader', 'logout'])
 
 const books = ref([])
 const isLoading = ref(true)
@@ -317,6 +424,11 @@ const isScanning = ref(false)
 const showUploadModal = ref(false)
 const searchQuery = ref('')
 const selectedCategory = ref('All')
+
+const showDeleteModal = ref(false)
+const bookToDelete = ref(null)
+const isDeleting = ref(false)
+const showBackToTop = ref(false)
 
 const toastMessage = ref('')
 const toastType = ref('success')
@@ -468,7 +580,55 @@ const selectBook = (book) => {
   emit('open-reader', book)
 }
 
+const confirmDelete = (book) => {
+  bookToDelete.value = book
+  showDeleteModal.value = true
+}
+
+const cancelDelete = () => {
+  if (isDeleting.value) return
+  showDeleteModal.value = false
+  bookToDelete.value = null
+}
+
+const executeDelete = async () => {
+  if (!bookToDelete.value || isDeleting.value) return
+  isDeleting.value = true
+  const target = bookToDelete.value
+  try {
+    const res = await fetch(`/api/books/${encodeURIComponent(target.id)}`, {
+      method: 'DELETE'
+    })
+    if (res.ok) {
+      books.value = books.value.filter(b => b.id !== target.id)
+      showToast(`Deleted "${target.title}" successfully.`, 'success')
+      showDeleteModal.value = false
+      bookToDelete.value = null
+    } else {
+      const errData = await res.json().catch(() => ({}))
+      showToast(errData.detail || 'Failed to delete book.', 'error')
+    }
+  } catch (err) {
+    showToast(`Network error deleting book: ${err.message}`, 'error')
+  } finally {
+    isDeleting.value = false
+  }
+}
+
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const onScroll = () => {
+  showBackToTop.value = window.scrollY > 300
+}
+
 onMounted(() => {
   fetchBooks()
+  window.addEventListener('scroll', onScroll, { passive: true })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScroll)
 })
 </script>

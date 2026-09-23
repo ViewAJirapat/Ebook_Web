@@ -11,8 +11,11 @@ services:
       - ./data/library:/app/data/library
       - ./data/cache:/app/data/cache
       - ./database:/app/database
+      - ./backend:/app/backend
     environment:
       - PORT=80
       - DATA_DIR=/app/data
       - DATABASE_DIR=/app/database
       - DIST_DIR=/app/dist
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-123456}
