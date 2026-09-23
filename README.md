@@ -20,7 +20,9 @@ docker compose up -d --build
 
 Once launched, open your web browser:
 
-- 📖 **Manga Reader Web App**: [http://localhost:8085](http://localhost:8085)
+- 📖 **Web App (Computer)**: [http://localhost:8085](http://localhost:8085)
+- 📱 **Phone / Tablet**: `http://<YOUR_COMPUTER_IP>:8085` (e.g. `http://192.168.1.106:8085`) on the same Wi-Fi
+  - *Tip*: Tap **"Add to Home Screen"** on your phone browser for a full-screen, native app-like experience!
 - ⚡ **Interactive API Docs (Swagger UI)**: [http://localhost:8085/docs](http://localhost:8085/docs)
 - 🩺 **Health Check**: [http://localhost:8085/api/health](http://localhost:8085/api/health)
 
@@ -29,6 +31,25 @@ Once launched, open your web browser:
 ```bash
 docker compose down
 ```
+
+---
+
+## 🚀 Adding Books to Your Library
+
+You have two convenient ways to add books:
+
+### Option A: Web Upload (Recommended)
+1. Open the web app on your computer or phone.
+2. Click the **"+ Add Book"** button in the header or next to "Your Books".
+3. Choose your category, or create a new one on the fly.
+4. Upload:
+   - 📄 **PDF Document**: Single or multiple `.pdf` files (full Thai & Unicode filename support).
+   - 📁 **Manga Folder**: Select an entire image directory from your computer.
+   - 📦 **Comic Archive**: Upload `.zip` or `.cbz` files (automatically unpacked into a book).
+5. The book is automatically indexed and appears immediately in **Your Books**!
+
+### Option B: Direct Filesystem Copy
+
 
 ---
 
@@ -106,9 +127,12 @@ The Vite dev server runs at [http://localhost:5173](http://localhost:5173) and a
 
 ## Key Features
 
-- 📖 **Universal Support**: Reads folder-based image collections and `.pdf` files.
+- 📖 **Universal Support**: Reads folder-based image collections, `.pdf` documents, and `.zip`/`.cbz` comic archives.
+- 📤 **Web-Based Uploads**: Add books directly from the web UI with drag & drop, folder selection, and category organization.
 - 📜 **Continuous Webtoon Reading**: Vertical infinite scroll with responsive lazy loading via `IntersectionObserver`.
 - ⚡ **Zero-Gap Mode**: Seamless edge-to-edge manga reading with no borders or gaps.
 - 🖼️ **On-Demand Page & Cover Caching**: PyMuPDF (`fitz`) and Pillow generate optimized WebP thumbnails and pages on the fly.
+- 🇹🇭 **Full Thai & Unicode Support**: Seamlessly supports Thai (e.g. `ลับสุดยอด1.pdf`, `สวัสดี.pdf`) and other Unicode filenames.
+- 📱 **Mobile & Tablet Optimized**: Responsive layout with touch navigation, fit-width toggling, and fullscreen reading.
 - 💾 **Automatic Progress Syncing**: Automatically tracks reading progress to `localStorage` and continuously syncs with the SQLite database.
 - 🌓 **Pure Dark Mode**: High-contrast, eye-friendly `slate-950` design for desktop and mobile reading.
