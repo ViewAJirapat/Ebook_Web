@@ -1,0 +1,18 @@
+services:
+  manga-reader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: local-manga-reader
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-8085}:80"
+    volumes:
+      - ./data/library:/app/data/library
+      - ./data/cache:/app/data/cache
+      - ./database:/app/database
+    environment:
+      - PORT=80
+      - DATA_DIR=/app/data
+      - DATABASE_DIR=/app/database
+      - DIST_DIR=/app/dist
