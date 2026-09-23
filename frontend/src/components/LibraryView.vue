@@ -24,18 +24,19 @@
           <div class="sm:hidden flex items-center gap-1.5">
             <button
               @click="showUploadModal = true"
-              class="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-indigo-400 rounded-lg transition"
-              title="Upload book or folder"
+              class="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition"
+              title="Add ebook or folder"
             >
-              <Upload class="w-4 h-4" />
+              <Plus class="w-3.5 h-3.5" />
+              <span>Add</span>
             </button>
             <button
               @click="triggerScan"
               :disabled="isScanning"
-              class="p-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/40 text-white rounded-lg transition"
+              class="p-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-lg transition"
               title="Scan data/library"
             >
-              <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': isScanning }" />
+              <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isScanning }" />
             </button>
           </div>
         </div>
@@ -58,20 +59,20 @@
           </button>
         </div>
 
-        <!-- Desktop Admin Action -->
+        <!-- Desktop Action Buttons -->
         <div class="hidden sm:flex items-center gap-2.5">
           <button
             @click="showUploadModal = true"
-            class="flex items-center gap-2 px-3.5 py-2 text-sm font-medium bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white rounded-xl transition cursor-pointer shadow-sm"
+            class="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition cursor-pointer shadow-md shadow-indigo-500/20"
           >
-            <Upload class="w-4 h-4 text-indigo-400" />
-            <span>Upload</span>
+            <Plus class="w-4 h-4" />
+            <span>Add Book</span>
           </button>
 
           <button
             @click="triggerScan"
             :disabled="isScanning"
-            class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-950 disabled:text-indigo-400 text-white rounded-xl transition shadow-sm shadow-indigo-500/20 cursor-pointer disabled:cursor-not-allowed"
+            class="flex items-center gap-2 px-3.5 py-2 text-sm font-medium bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white rounded-xl transition cursor-pointer disabled:cursor-not-allowed"
           >
             <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': isScanning }" />
             <span>{{ isScanning ? 'Scanning...' : 'Scan Library' }}</span>
@@ -86,11 +87,19 @@
       
       <!-- Sub-bar: Filters & Count -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2.5">
           <h2 class="text-xl font-bold text-white tracking-tight">Your Books</h2>
           <span class="text-xs px-2 py-0.5 bg-slate-900 border border-slate-800 rounded-full text-slate-400">
             {{ filteredBooks.length }}
           </span>
+          <button
+            @click="showUploadModal = true"
+            class="flex items-center gap-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-medium transition cursor-pointer shadow-sm ml-1"
+            title="Add ebook or folder"
+          >
+            <Plus class="w-3.5 h-3.5 text-indigo-400" />
+            <span>Add</span>
+          </button>
         </div>
 
         <!-- Dynamic Category Pills & Subdirectory Navigation -->
@@ -160,14 +169,23 @@
           <span v-if="searchQuery">No items match your search for "{{ searchQuery }}".</span>
           <span v-else>Put manga folders or PDF documents inside <code class="text-indigo-400 px-1 py-0.5 bg-slate-800 rounded">data/library/</code> and run a scan.</span>
         </p>
-        <button
-          @click="triggerScan"
-          :disabled="isScanning"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition cursor-pointer"
-        >
-          <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': isScanning }" />
-          <span>{{ isScanning ? 'Scanning...' : 'Scan data/library/' }}</span>
-        </button>
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <button
+            @click="showUploadModal = true"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition cursor-pointer shadow-md shadow-indigo-500/20"
+          >
+            <Plus class="w-4 h-4" />
+            <span>Add Book</span>
+          </button>
+          <button
+            @click="triggerScan"
+            :disabled="isScanning"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-sm font-medium transition cursor-pointer"
+          >
+            <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': isScanning }" />
+            <span>Scan data/library/</span>
+          </button>
+        </div>
       </div>
 
       <!-- Book Grid -->
@@ -286,7 +304,8 @@ import {
   CheckCircle2,
   AlertCircle,
   ExternalLink,
-  Upload
+  Upload,
+  Plus
 } from 'lucide-vue-next'
 import UploadModal from './UploadModal.vue'
 
