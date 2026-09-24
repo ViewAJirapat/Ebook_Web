@@ -90,11 +90,6 @@
             </button>
           </div>
         </form>
-
-        <!-- Credentials Hint / Notice -->
-        <div class="mt-6 pt-4 border-t border-slate-800/80 text-center text-slate-500 text-[11px] leading-relaxed">
-          Default access: <code class="text-indigo-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 font-mono">admin</code> / <code class="text-indigo-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 font-mono">123456</code>
-        </div>
       </div>
     </div>
   </div>
@@ -115,7 +110,7 @@ import {
 
 const emit = defineEmits(['login-success'])
 
-const username = ref('admin')
+const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const isLoading = ref(false)
